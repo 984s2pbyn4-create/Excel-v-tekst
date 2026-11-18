@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f9fc">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Таблица → Текст">
+  <meta name="description" content="Автономное преобразование строк таблицы в текст по собственным шаблонам.">
+  <meta name="color-scheme" content="light">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <link rel="icon" href="./icons/icon-192.png" sizes="192x192" type="image/png">
+  <link rel="stylesheet" href="./styles.css">
+  <title>Таблица → Текст · автономный редактор</title>
+  <script src="./vendor/jszip.min.js" defer></script>
+  <script src="./xlsx-reader.js" defer></script>
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="./" aria-label="Таблица в текст — главная">
+        <span class="brand-icon" aria-hidden="true">
+          <svg viewBox="0 0 44 44" fill="none"><rect x="8" y="7" width="28" height="30" rx="5" stroke="currentColor" stroke-width="2.3"/><path d="M8 17h28M18 17v20M18 26h18" stroke="currentColor" stroke-width="2.3"/><path d="m22 11 3 2-3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span class="brand-name">Таблица <span class="brand-arrow">→</span> Текст<span class="brand-subtitle">Шаблоны и отчёты</span></span>
+      </a>
+      <div class="status-pill" id="connectionStatus" role="status" aria-live="polite"><span class="status-dot"></span><span id="connectionText">Проверка подключения</span></div>
+    </div>
+  </header>
+
+  <main class="container main-content">
+    <section class="hero" aria-labelledby="pageTitle">
+      <div>
+        <div class="eyebrow"><span class="eyebrow-dot"></span> Локальный редактор для iPhone, iPad и компьютера</div>
+        <h1 id="pageTitle">Из таблицы — <span>в связный текст.</span></h1>
+        <p>Откройте Excel или вставьте строки из Numbers, настройте фразы с названиями столбцов и получите готовые абзацы. Без отправки данных на сервер.</p>
+      </div>
+      <div class="hero-art" aria-hidden="true">
+        <div class="art-sheet"><span class="art-pill"></span><span class="art-grid"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+        <span class="art-transform">→</span>
+        <div class="art-note"><span></span><span></span><span></span><span></span></div>
+      </div>
+    </section>
+
+    <div class="workspace">
+      <section class="panel data-panel" aria-labelledby="dataHeading">
+        <div class="panel-topline"><span class="step">01</span><span class="step-name">Исходные данные</span></div>
+        <div class="panel-title-row"><div><h2 id="dataHeading">Вставьте таблицу</h2><p class="panel-description">Загрузите Excel (.xlsx), CSV, TSV либо вставьте ячейки из Numbers.</p></div></div>
+        <div class="button-row top-actions">
+          <button class="button button-primary" id="importButton" type="button"> <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg> Открыть файл</button>
+          <button class="button button-subtle" id="exampleButton" type="button">Загрузить пример</button>
+          <button class="button button-text danger-text" id="clearButton" type="button">Очистить</button>
+        </div>
+        <input id="fileInput" type="file" accept=".xlsx,.csv,.tsv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/tab-separated-values,text/plain" hidden>
+        <label class="field-label" for="rawData">Данные таблицы</label>
+        <textarea id="rawData" class="raw-input" rows="7" spellcheck="false" placeholder="Дата&#9;Мероприятие&#9;Участники&#10;12.11.2026&#9;Семинар&#9;25 человек" aria-describedby="pasteHint"></textarea>
+        <p class="small-hint" id="pasteHint">Первая строка обычно содержит названия столбцов. Вставка из электронной таблицы поддерживается.</p>
+        <div class="data-settings">
+          <div class="setting-control"><label for="delimiterSelect">Разделитель</label><select id="delimiterSelect"><option value="auto">Авто</option><option value="tab">Табуляция</option><option value="semicolon">Точка с запятой</option><option value="comma">Запятая</option></select></div>
+          <label class="checkbox-control"><input id="hasHeaders" type="checkbox" checked><span>Первая строка — заголовки</span></label>
+        </div>
+        <div class="preview-head"><h3>Предпросмотр таблицы</h3><span class="count-tag" id="tableCount">Нет данных</span></div>
+        <div class="table-shell" id="tablePreview" tabindex="0" aria-label="Предпросмотр таблицы"><div class="empty-placeholder"><span class="empty-symbol">▦</span><span>Здесь появятся столбцы и строки</span></div></div>
+        <p class="small-hint" id="previewNote">Отображаются первые 6 строк.</p>
+      </section>
+
+      <section class="panel template-panel" aria-labelledby="templateHeading">
+        <div class="panel-topline"><span class="step">02</span><span class="step-name">Ваш шаблон</span></div>
+        <div class="panel-title-row"><div><h2 id="templateHeading">Настройте предложения</h2><p class="panel-description">Вставляйте названия столбцов в фигурных скобках: <code>{Мероприятие}</code>.</p></div></div>
+        <label class="field-label" for="templateSelect">Сохранённые шаблоны</label>
+        <div class="select-line"><select id="templateSelect" aria-label="Выберите шаблон"></select><button type="button" class="button button-secondary" id="newTemplateButton" aria-label="Создать новый шаблон">+ Новый</button></div>
+        <div class="template-tools"><button type="button" class="link-button" id="duplicateTemplateButton">Создать копию</button><button type="button" class="link-button danger-text" id="deleteTemplateButton">Удалить шаблон</button><span class="autosave-label"><span class="auto-check">✓</span> Автосохранение</span></div>
+        <label class="field-label" for="templateName">Название шаблона</label>
+        <input class="text-input" id="templateName" maxlength="100" placeholder="Например, Отчёт о мероприятиях">
+        <label class="field-label" for="introInput">Вступление <span class="optional">необязательно</span></label>
+        <textarea class="short-textarea" id="introInput" rows="2" placeholder="Например: За отчётный период проведены следующие мероприятия."></textarea>
+        <label class="field-label" for="patternInput">Предложение для строки или группы <span class="required-mark">*</span></label>
+        <textarea class="pattern-textarea" id="patternInput" rows="5" placeholder="{Дата} состоялось мероприятие «{Мероприятие}». В нём приняли участие {Участники}."></textarea>
+        <div class="field-chip-header"><span class="field-label">Вставить поле в предложение</span><span class="micro-label">Нажмите на название</span></div>
+        <div class="fields-list" id="fieldChips"><span class="muted">Загрузите таблицу, чтобы увидеть поля.</span></div>
+        <p class="small-hint">Для списков без повторений используйте <code>{НазваниеСтолбца|уникальные}</code>, для всех значений — <code>|все</code>. Поля <code>{№}</code>, <code>{Количество}</code> и <code>{КоличествоВГруппе}</code> доступны автоматически.</p>
+        <div class="group-settings">
+          <h3>Группировка записей</h3>
+          <p class="small-hint">Необязательно: создавайте один абзац на группу. Настройки сохраняются вместе с шаблоном.</p>
+          <div class="group-options">
+            <div class="setting-control"><label for="groupBySelect">Главный столбец</label><select id="groupBySelect"><option value="">Без группировки</option></select></div>
+            <div class="setting-control"><label for="groupBySecondSelect">Дополнительный столбец</label><select id="groupBySecondSelect"><option value="">Не используется</option></select></div>
+          </div>
+        </div>
+        <label class="field-label" for="outroInput">Заключение <span class="optional">необязательно</span></label>
+        <textarea class="short-textarea" id="outroInput" rows="2" placeholder="Например: Всего описано {Количество} мероприятий."></textarea>
+        <div class="output-options"><label class="checkbox-control"><input id="numberRows" type="checkbox"><span>Нумеровать абзацы</span></label><label class="checkbox-control"><input id="separateParagraphs" type="checkbox" checked><span>Каждая строка — отдельный абзац</span></label></div>
+      </section>
+
+      <section class="panel result-panel" aria-labelledby="resultHeading">
+        <div class="result-heading"><div><div class="panel-topline"><span class="step">03</span><span class="step-name">Готовый результат</span></div><h2 id="resultHeading">Ваш текст</h2><p class="panel-description">Обновляется автоматически при изменении таблицы или шаблона.</p></div><span class="count-tag" id="outputCount">0 слов</span></div>
+        <div id="validationMessage" class="validation-message" role="status" aria-live="polite" hidden></div>
+        <textarea id="resultText" class="result-text" readonly rows="9" aria-label="Результат преобразования" placeholder="Готовые предложения появятся здесь…"></textarea>
+        <div class="result-bottom"><span class="privacy-note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg> Данные остаются на этом устройстве</span><div class="button-row"><button type="button" class="button button-secondary" id="shareButton">Поделиться</button><button type="button" class="button button-secondary" id="downloadButton">Скачать TXT</button><button type="button" class="button button-primary" id="copyButton">Копировать текст</button></div></div>
+      </section>
+    </div>
+
+    <section class="utility-panel" aria-labelledby="backupHeading"><div class="utility-copy"><h2 id="backupHeading">Резервная копия и автономная работа</h2><p>Шаблоны и таблица сохраняются на устройстве. Чтобы перенести их на другое устройство или сохранить перед очисткой браузера, используйте резервную копию.</p></div><div class="button-row"><button type="button" class="button button-secondary" id="exportBackupButton">Сохранить копию JSON</button><button type="button" class="button button-secondary" id="importBackupButton">Восстановить копию</button><input type="file" id="backupInput" accept=".json,application/json" hidden></div></section>
+
+    <footer class="page-footer"><span>Таблица → Текст · работает локально</span><span id="offlineHint">Для работы без сети один раз откройте опубликованное приложение онлайн.</span></footer>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
